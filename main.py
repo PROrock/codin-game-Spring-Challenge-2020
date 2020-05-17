@@ -16,11 +16,6 @@ class Point:
     def __init__(self, x, y):
         self.x = x
         self.y = y
-    
-    def l1dist(self, other_point):
-        d = abs(self.x-other_point.x) + abs(self.y-other_point.y)
-        # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr)
-        return d
 
     def __str__(self):
         return f"P({self.x},{self.y})"
@@ -46,12 +41,7 @@ class Pac:
         self.type_id = type_id
         self.speed_turns_left = speed_turns_left
         self.ability_cooldown = ability_cooldown
-    
-    # def __str__(self):
-        # return f"Pac({self.id}, {self.p})"
 
-    # def __repr__(self):
-        # return self.__str__()
     def __repr__(self):
         return f"Pac({self.id}, {self.p}, mine={self.mine}, type={self.type_id}, speed_t_left={self.speed_turns_left}, ab_coold={self.ability_cooldown})"
 
@@ -152,8 +142,6 @@ while True:
     prev_round_pacs = my_pacs
     my_pacs = {}
     enemy_pacs = {}
-    # all_pacs = {}
-    # my_pac = None
     visible_pac_count = int(input())  # all your pacs and enemy pacs in sight
     for i in range(visible_pac_count):
         # pac_id: pac number (unique within a team)
@@ -171,15 +159,10 @@ while True:
         speed_turns_left = int(speed_turns_left)
         ability_cooldown = int(ability_cooldown)
 
-        # if mine:
-            # my_pac = Point(x, y)
-            # my_pacs[pac_id] = Pac(pac_id, Point(x,y), mine, type_id, speed_turns_left, ability_cooldown)
-
         pacman = Pac(pac_id, Point(x,y),mine, type_id, speed_turns_left, ability_cooldown)
         dictionary = my_pacs if mine else enemy_pacs
         dictionary[pac_id] = pacman
         # print(f"pacman {pacman}", file=sys.stderr)
-        # all_pacs[pac_id] = pacman
 
 
     pacs_time = time.time()
@@ -187,12 +170,6 @@ while True:
 
 
     visible_pellet_count = int(input())  # all pellets in sight
-
-    max_dist = width*height
-    # closest_pellet_dist_d={id: max_dist for id, pac in my_pacs.items()}
-    # closest_pellet_d={id: None for id, pac in my_pacs.items()}
-    # closest_pellet = None
-    # closest_pellet_dist = max_dist
     for i in range(visible_pellet_count):
         # value: amount of points this pellet is worth
         x, y, value = [int(j) for j in input().split()]
@@ -205,14 +182,9 @@ while True:
         # print(f"{id}: {pac}", file=sys.stderr)
 
 
-    ## todo all pacs!
-    # closest_pellet_d={}
-
     # todo detect dead pacs if you want nice code without warning
     goals={}
     for pac in my_pacs.values():
-    # for pac in [list(my_pacs.values())[0]]:
-    # for id, pac in [my_pacs[my_pacs.keys()[0]]]:
         pellet = Search(pac.p).search()
         # closest_pellet_d[pac.id] = pellet
         if pellet is not None and not had_collision(id,prev_round_pacs, my_pacs):
@@ -228,17 +200,6 @@ while True:
     pellet_time = time.time()
     print(f"pellet time {pellet_time-pacs_time}", file=sys.stderr)
 
-
-    # Write an action using print
-    # To debug: print("Debug messages...", file=sys.stderr)
-
     # MOVE <pacId> <x> <y>
     s=''.join([f"MOVE {id} {g.p.x} {g.p.y} {g.comment} | " for id, g in goals.items()])
-    # s=''
-    # for id, closest_pellet in closest_pellet_d.items():
-    #     # My_pac={my_pacs[id].p} Closest dist is {closest_pellet_dist_d[id]}
-    #     # can't see nearest pellet or was on this exact spot 1 turn ago -> go random way
-    #     if closest_pellet is None or (id in prev_round_pacs and prev_round_pacs[id].p == all_pacs[id].p):
-    #         closest_pellet = Point(random.randrange(width), random.randrange(height))
-    #     s +=(f"MOVE {id} {closest_pellet.x} {closest_pellet.y} | ")
     print(s)
