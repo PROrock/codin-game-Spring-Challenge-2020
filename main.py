@@ -168,7 +168,9 @@ def random_pellet():
 def get_pac_move(pac, node):
     # print(f"node path {node.path}, speed {pac.speed_turns_left}", file=sys.stderr, flush=True)
     idx = 2 if pac.speed_turns_left > 0 and len(node.path) > 2 else 1
-    return node.path[idx] 
+    for p in node.path[:idx+1]:
+        map[p.y][p.x] = WALL # temp marking of future path of this pacman as walls so that other pacmans avoid this path 
+    return node.path[idx]
 
 def set_goal_with_close_enemy(pac, enemy, dist):
     type_id = is_beaten_by[enemy.type_id]
@@ -191,16 +193,22 @@ def set_goal(pac,prev_round_pacs, my_pacs):
     if dist < DIST_TO_ENEMY_ENGAGE:
         return set_goal_with_close_enemy(pac, enemy_pacs[closest_enemy_id], dist)
 
-    if had_collision(pac.id, prev_round_pacs, my_pacs):
-        pellet = Point(random.randrange(width), random.randrange(height))
-        return Goal(move(pac.id, pellet), f"coll -> random {pellet}")
+    # if had_collision(pac.id, prev_round_pacs, my_pacs):
+    #     pellet = Point(random.randrange(width), random.randrange(height))
+    #     return Goal(move(pac.id, pellet), f"coll -> random {pellet}")
 
     # todo must have next goal more distant than 1!
     if pac.ability_cooldown == 0:
         return Goal(speed(pac.id), f"speed!")
 
+
+    node = Search(pac.p, ['9']).search()
+    if node is not None and node.dist <= 10:
+        point = get_pac_move(pac, node)
+        return Goal(move(pac.id, point), f"vis. p. {point}")
+
     node = Search(pac.p, ['0', '9']).search()
-    if node is not None:
+    if node is not None and node.dist <= 7:
         point = get_pac_move(pac, node)
         return Goal(move(pac.id, point), f"vis. p. {point}")
 
