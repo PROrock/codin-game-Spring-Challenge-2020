@@ -34,7 +34,7 @@ class Point:
 
     def l1dist(self, other_point):
         d = abs(self.x-other_point.x) + abs(self.y-other_point.y)
-        # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr)
+        # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr, flush=True)
         return d
 
     def __str__(self):
@@ -51,7 +51,7 @@ class Point:
         return hash((self.x, self.y))
 
     def add(self, other_point):
-        return Point(self.x + other_point.x, self.y+other_point.y)
+        return Point((self.x + other_point.x)%width, (self.y+other_point.y)%height)
 
 class Pac:
     def __init__(self, id, p, mine, type_id, speed_turns_left, ability_cooldown):
@@ -72,12 +72,14 @@ def mapping(map, point):
     return map[point.y][point.x]
 
 class Node:
-    def __init__(self, p, dist, p_value):
+    def __init__(self, p, dist, p_value, path):
         self.p = p
         self.dist = dist
         self.p_value = p_value
+        self.path = path
 
     def __str__(self):
+        # todo path maybe?
         return f"N({self.p}, dist={self.dist}, p_val={self.p_value})"
 
     def __repr__(self):
@@ -90,11 +92,11 @@ class Node:
             new_p = self.p.add(poss)
             if(new_p not in visited):
                 map_value = mapping(map, new_p)
-                # print(f"new_point is {new_p}, map_val is: {map_value}", file=sys.stderr)        
+                # print(f"new_point is {new_p}, map_val is: {map_value}", file=sys.stderr, flush=True)        
                 if(map_value != WALL):
-                    new_nodes.append(Node(new_p, self.dist+1, int(map_value)+1 if map_value in ['0', '9'] else -1))
+                    new_nodes.append(Node(new_p, self.dist+1, int(map_value)+1 if map_value in ['0', '9'] else -1, copy.copy(self.path)+[self.p]))
 
-        # print(f"expanded from {self} are: {[str(node) for node in new_nodes]}", file=sys.stderr)        
+        # print(f"expanded from {self} are: {[str(node) for node in new_nodes]}", file=sys.stderr, flush=True)        
         return new_nodes
 
 class Search:
@@ -103,7 +105,14 @@ class Search:
         self.goals = goals
 
     def search(self):
-        front = [Node(self.start, 0, -1)]
+        s = 0
+        for goal in self.goals:
+            s+=sum([row.count(goal) for row in map])
+        if s == 0:
+            print(f"No goals {self.goals} on the map!", file=sys.stderr, flush=True)
+            return None       
+
+        front = [Node(self.start, 0, -1, [])]
         visited = set()
         
         while len(front) > 0:
@@ -111,15 +120,17 @@ class Search:
             # if(node.p not in visited):
             if True: ## todo
                 if(mapping(map, node.p) in self.goals):
-                    return node.p
+                    node.path.append(node.p)
+                    # print(f"Found goal: '{mapping(map, node.p)}'. Path is {node.path}", file=sys.stderr, flush=True)    
+                    return node
                 new_nodes = node.expand(visited)
                 front.extend(new_nodes)
                 visited.add(node.p)
-                # print(f"visited is now: {[str(p) for p in visited]}", file=sys.stderr)
+                # print(f"visited is now: {[str(p) for p in visited]}", file=sys.stderr, flush=True)
             else:
-                # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr)
+                # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr, flush=True)
                 pass
-        print(f"Haven't found pellet for start: {self.start}", file=sys.stderr)
+        print(f"Haven't found one of goals:{self.goals} for start: {self.start}", file=sys.stderr, flush=True)
         return None
         
 class Goal:
@@ -139,7 +150,7 @@ def argmax(list):
 
 def had_collision(id, prev_round_pacs, my_pacs):
     b=(id in prev_round_pacs and prev_round_pacs[id].p == my_pacs[id].p)
-    # print(f"collision test id: {id} prev.p={'aaa'} curr.p={'bbb'} bool: {b}", file=sys.stderr)
+    # print(f"collision test id: {id} prev.p={'aaa'} curr.p={'bbb'} bool: {b}", file=sys.stderr, flush=True)
     return b
     
 def move(id, p):
@@ -154,6 +165,11 @@ def speed(id):
 def random_pellet():
     return Point(random.randrange(width), random.randrange(height))
 
+def get_pac_move(pac, node):
+    # print(f"node path {node.path}, speed {pac.speed_turns_left}", file=sys.stderr, flush=True)
+    idx = 2 if pac.speed_turns_left > 0 and len(node.path) > 2 else 1
+    return node.path[idx] 
+
 def set_goal_with_close_enemy(pac, enemy, dist):
     type_id = is_beaten_by[enemy.type_id]
     if pac.type_id != type_id and pac.ability_cooldown==0 and dist <=2:
@@ -165,15 +181,11 @@ def set_goal_with_close_enemy(pac, enemy, dist):
 
 def set_goal(pac,prev_round_pacs, my_pacs):
     # hunting/fleeing from CLOSE enemy has priority
-
     if enemy_pacs:
         dist_map = {enemy.id: pac.p.l1dist(enemy.p) for enemy in enemy_pacs.values()}
-        # argmax([pac.p.l1dist(enemy.p) for enemy in enemy_pacs.values()])
         closest_enemy_id = min(dist_map.keys(), key=lambda key: dist_map[key])
-        # for enemy in enemy_pacs.values():
-        #     dist = pac.p.l1dist(enemy.p)
         dist = dist_map[closest_enemy_id]
-        print(f"closest enemy to {pac} is enemy {enemy_pacs[closest_enemy_id]}, with dist {dist}", file=sys.stderr)
+        # print(f"closest enemy to {pac} is enemy {enemy_pacs[closest_enemy_id]}, with dist {dist}", file=sys.stderr, flush=True)
     else:
         dist = 1000
     if dist < DIST_TO_ENEMY_ENGAGE:
@@ -187,33 +199,32 @@ def set_goal(pac,prev_round_pacs, my_pacs):
     if pac.ability_cooldown == 0:
         return Goal(speed(pac.id), f"speed!")
 
-    pellet = Search(pac.p, ['0', '9']).search()
-    # closest_pellet_d[pac.id] = pellet
-    if pellet is not None:
-        return Goal(move(pac.id, pellet), f"vis. p. {pellet}")
+    node = Search(pac.p, ['0', '9']).search()
+    if node is not None:
+        point = get_pac_move(pac, node)
+        return Goal(move(pac.id, point), f"vis. p. {point}")
 
     # go for closest unexplored space
-    pellet = Search(pac.p, [' ']).search()
-    if pellet is not None:
-        return Goal(move(pac.id, pellet), f"explore {pellet}")
+    node = Search(pac.p, [' ']).search()
+    if node is not None:
+        point = get_pac_move(pac, node)
+        return Goal(move(pac.id, point), f"explore {point}")
     else:
-        pellet = Point(random.randrange(width), random.randrange(height))
-        return Goal(move(pac.id, pellet), f"random {pellet}")
-
-# def generate_visible(p):
+        point = Point(random.randrange(width), random.randrange(height))
+        return Goal(move(pac.id, point), f"random {point}")
 
 def generate_ex_pellets(pac):
     p = pac.p
-    result = set()
+    result = set([p])
     
     for grad in [Point(x, y) for x,y in zip([-1, 1, 0, 0], [0, 0, -1, 1])]:
-        # print(f"p={p} grad={grad}", file=sys.stderr)
+        # print(f"p={p} grad={grad}", file=sys.stderr, flush=True)
         new_p = p
 
         while(True):
             new_p = new_p.add(grad)
             new_val = mapping(map, new_p)
-            # print(f"new_p={new_p} new_val={new_val}", file=sys.stderr)
+            # print(f"new_p={new_p} new_val={new_val}", file=sys.stderr, flush=True)
 
             if (new_val == WALL):
                 break
@@ -242,7 +253,7 @@ while True:
     start_time = time.time()
     map = copy.deepcopy(orig_map)
     copy_time = time.time()
-    print(f"copy time {copy_time-start_time}", file=sys.stderr)
+    print(f"copy time {copy_time-start_time}", file=sys.stderr, flush=True)
 
 
     prev_round_pacs = my_pacs
@@ -268,17 +279,17 @@ while True:
         pacman = Pac(pac_id, Point(x,y),mine, type_id, speed_turns_left, ability_cooldown)
         dictionary = my_pacs if mine else enemy_pacs
         dictionary[pac_id] = pacman
-        # print(f"pacman {pacman}", file=sys.stderr)
+        # print(f"pacman {pacman}", file=sys.stderr, flush=True)
 
-    # print(f"prev dict {prev_round_pacs}", file=sys.stderr)
-    # print(f"my dict {my_pacs}", file=sys.stderr)
+    # print(f"prev dict {prev_round_pacs}", file=sys.stderr, flush=True)
+    # print(f"my dict {my_pacs}", file=sys.stderr, flush=True)
 
     pacs_time = time.time()
-    print(f"pacs time {pacs_time-copy_time}", file=sys.stderr)
+    print(f"pacs time {pacs_time-copy_time}", file=sys.stderr, flush=True)
 
 
     visible_pellet_count = int(input())  # all pellets in sight
-    print(f"visible pellet count {visible_pellet_count}. Range {list(range(visible_pellet_count))}", file=sys.stderr)
+    # print(f"visible pellet count {visible_pellet_count}. Range {list(range(visible_pellet_count))}", file=sys.stderr, flush=True)
 
     for i in range(visible_pellet_count):
         # value: amount of points this pellet is worth
@@ -286,14 +297,14 @@ while True:
         map[y][x] = str(value-1)
 
     pellet_time = time.time()
-    print(f"pellet time1 {pellet_time-pacs_time}", file=sys.stderr)
+    print(f"pellet time1 {pellet_time-pacs_time}", file=sys.stderr, flush=True)
 
 
     # mark empty visible spaces as empty
     ex_pellets = set()
     for pac in my_pacs.values():
         ex_pellets.update(generate_ex_pellets(pac))
-        print(f"ex pellets now {ex_pellets}", file=sys.stderr)
+        # print(f"ex pellets now {ex_pellets}", file=sys.stderr, flush=True)
     
 
     for ex in ex_pellets:
@@ -301,14 +312,14 @@ while True:
         orig_map[ex.y][ex.x] = EX_PELLET
 
 
-    for row in map:
-        print(row, file=sys.stderr)
+    # for row in map:
+        # print(row, file=sys.stderr, flush=True)
 
     # for id, pac in all_pacs.items():
-        # print(f"{id}: {pac}", file=sys.stderr)
+        # print(f"{id}: {pac}", file=sys.stderr, flush=True)
 
     pellet_time = time.time()
-    print(f"pellet time2 {pellet_time-pacs_time}", file=sys.stderr)
+    print(f"pellet time2 {pellet_time-pacs_time}", file=sys.stderr, flush=True)
 
 
     # todo detect dead pacs if you want nice code without warning
