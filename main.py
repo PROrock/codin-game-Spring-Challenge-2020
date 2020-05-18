@@ -221,7 +221,7 @@ def set_goal(pac,prev_round_pacs, my_pacs, goals):
         # print(f"closest enemy to {pac} is enemy {enemy_pacs[closest_enemy_id]}, with dist {dist}", file=sys.stderr, flush=True)
     else:
         dist = 1000
-    if dist < DIST_TO_ENEMY_ENGAGE:
+    if dist <= DIST_TO_ENEMY_ENGAGE:
         return set_goal_with_close_enemy(pac, enemy_pacs[closest_enemy_id], dist)
 
     # if had_collision(pac.id, prev_round_pacs, my_pacs):
@@ -234,9 +234,9 @@ def set_goal(pac,prev_round_pacs, my_pacs, goals):
 
 
     node = Search(pac.p, ['9']).search()
-    if node is not None and node.dist <= 12:
+    if node is not None and node.dist <= 15:
         point = get_pac_move(pac, node)
-        return Goal(move(pac.id, point), f"vis. p. {point}")
+        return Goal(move(pac.id, point), f"big p. {point}")
 
     node = Search(pac.p, ['0', '9']).search()
     if node is not None and node.dist <= 7:
@@ -257,7 +257,7 @@ def set_goal(pac,prev_round_pacs, my_pacs, goals):
         point = get_pac_move(pac, node)
         return Goal(move(pac.id, point), f"explore {point}")
     else:
-        point = Point(random.randrange(width), random.randrange(height))
+        point = random_pellet()
         return Goal(move(pac.id, point), f"random {point}")
 
 def generate_ex_pellets(pac):
@@ -300,7 +300,7 @@ while True:
     start_time = time.time()
     map = copy.deepcopy(orig_map)
     copy_time = time.time()
-    print(f"copy time {copy_time-start_time}", file=sys.stderr, flush=True)
+    # print(f"copy time {copy_time-start_time}", file=sys.stderr, flush=True)
 
 
     prev_round_pacs = my_pacs
@@ -329,13 +329,13 @@ while True:
         pacman = Pac(pac_id, Point(x,y), mine, type_id, speed_turns_left, ability_cooldown)
         dictionary = my_pacs if mine else enemy_pacs
         dictionary[pac_id] = pacman
-        print(f"pacman {pacman}", file=sys.stderr, flush=True)
+        # print(f"pacman {pacman}", file=sys.stderr, flush=True)
 
     # print(f"prev dict {prev_round_pacs}", file=sys.stderr, flush=True)
     # print(f"my dict {my_pacs}", file=sys.stderr, flush=True)
 
     pacs_time = time.time()
-    print(f"pacs time {pacs_time-copy_time}", file=sys.stderr, flush=True)
+    # print(f"pacs time {pacs_time-copy_time}", file=sys.stderr, flush=True)
 
 
     visible_pellet_count = int(input())  # all pellets in sight
@@ -347,7 +347,7 @@ while True:
         map[y][x] = str(value-1)
 
     pellet_time = time.time()
-    print(f"pellet time1 {pellet_time-pacs_time}", file=sys.stderr, flush=True)
+    # print(f"pellet time1 {pellet_time-pacs_time}", file=sys.stderr, flush=True)
 
 
     # mark empty visible spaces as empty
