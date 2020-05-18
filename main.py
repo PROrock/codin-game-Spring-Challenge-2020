@@ -201,7 +201,7 @@ def set_goal_with_close_enemy(pac, enemy, dist):
             for p in node.path:
                 map[p.y][p.x] = WALL
         
-        debug_map()
+        # debug_map()
 
         node = Search(pac.p, [SPACE]).search()
         if node is not None:
@@ -323,10 +323,13 @@ while True:
         speed_turns_left = int(speed_turns_left)
         ability_cooldown = int(ability_cooldown)
 
-        pacman = Pac(pac_id, Point(x,y),mine, type_id, speed_turns_left, ability_cooldown)
+        # silver league BS
+        if type_id == 'DEAD':
+            continue
+        pacman = Pac(pac_id, Point(x,y), mine, type_id, speed_turns_left, ability_cooldown)
         dictionary = my_pacs if mine else enemy_pacs
         dictionary[pac_id] = pacman
-        # print(f"pacman {pacman}", file=sys.stderr, flush=True)
+        print(f"pacman {pacman}", file=sys.stderr, flush=True)
 
     # print(f"prev dict {prev_round_pacs}", file=sys.stderr, flush=True)
     # print(f"my dict {my_pacs}", file=sys.stderr, flush=True)
