@@ -28,6 +28,10 @@ map = []
 # prev_round_pacs = {}
 # my_pacs = {}
 
+def debug_map():
+    for row in map:
+        print(row, file=sys.stderr, flush=True)
+
 class Point:
 
     def __init__(self, x, y):
@@ -35,7 +39,8 @@ class Point:
         self.y = y
 
     def l1dist(self, other_point):
-        d = abs(self.x-other_point.x) + abs(self.y-other_point.y)
+        modulus_bs = lambda x, mod: min(x, mod-x)
+        d = modulus_bs(abs(self.x-other_point.x), width) + modulus_bs(abs(self.y-other_point.y), height)
         # print(f"l1 dist: {self} and {other_point} is {d}", file=sys.stderr, flush=True)
         return d
 
@@ -90,6 +95,7 @@ class Node:
     def expand(self, visited):
         new_nodes = []
         possibilities = [Point(x,y) for x,y in zip([-1,1,0,0],[0,0,-1,1])]
+        # random.shuffle(possibilities) # maybe worse than without shuffle?
         for poss in possibilities:
             new_p = self.p.add(poss)
             if(new_p not in visited):
@@ -176,25 +182,33 @@ def get_pac_move(pac, node):
 
 def set_goal_with_close_enemy(pac, enemy, dist):
     type_id = is_beaten_by[enemy.type_id]
+    max_dist = sum([speed>0 for speed in [pac.speed_turns_left, enemy.speed_turns_left]]) + 2
+    print(f"conditions: dist={dist}, max_dist={max_dist}, pac={pac}, enemy={enemy}", file=sys.stderr, flush=True)
+    
     if pac.ability_cooldown==0 and dist == (2 if enemy.speed_turns_left > 0 else 1):
         new_type = type_id if enemy.ability_cooldown>0 else is_beaten_by[is_beaten_by[pac.type_id]]
         return Goal(switch(pac.id, new_type), f"cool switching for {enemy}")
 
-    if pac.type_id != type_id and pac.ability_cooldown==0 and dist <=2:
+    if pac.type_id != type_id and pac.ability_cooldown==0 and dist <= max_dist:
         return Goal(switch(pac.id, type_id), f"switching for {enemy}")
-    if pac.type_id == type_id or (pac.ability_cooldown < dist//2 and dist > 2):
+    # todo : //4 because 2 is sometimes incorrect (3 can also be, if both are using speed)
+    if (pac.type_id == type_id and enemy.ability_cooldown > (dist//2)) or (pac.ability_cooldown <= dist//2 and dist > max_dist):
         return Goal(move(pac.id, enemy.p), f"hunting {enemy}")
-    if dist <= 2 and (enemy.type_id == is_beaten_by[pac.type_id] or enemy.ability_cooldown < dist//2):
+    if dist <= max_dist and (enemy.ability_cooldown <= (dist//2) or enemy.type_id == is_beaten_by[pac.type_id]):
         map[enemy.p.y][enemy.p.x] = ENEMY
         node = Search(pac.p, [ENEMY]).search()
         if node is not None:
             for p in node.path:
                 map[p.y][p.x] = WALL
         
+        debug_map()
+
         node = Search(pac.p, [SPACE]).search()
         if node is not None:
             point = get_pac_move(pac, node)
             return Goal(move(pac.id, point), f"flee to {point}")
+        else:
+            print(f"cannot flee. ", file=sys.stderr, flush=True)
 
     return Goal(move(pac.id, random_pellet()), f"enemy close: {enemy} but dont know what to do")
 
@@ -345,8 +359,7 @@ while True:
         orig_map[ex.y][ex.x] = EX_PELLET
 
 
-    # for row in map:
-        # print(row, file=sys.stderr, flush=True)
+    # debug_map()
 
     # for id, pac in all_pacs.items():
         # print(f"{id}: {pac}", file=sys.stderr, flush=True)
