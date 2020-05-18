@@ -10,6 +10,8 @@ random.seed(0)
 WALL = '#'
 SPACE = ' '
 EX_PELLET = '.'
+ENEMY = 'E'
+
 DIST_TO_ENEMY_ENGAGE = 4
 beats={
     "ROCK": "SCISSORS",
@@ -121,7 +123,7 @@ class Search:
             if True: ## todo
                 if(mapping(map, node.p) in self.goals):
                     node.path.append(node.p)
-                    # print(f"Found goal: '{mapping(map, node.p)}'. Path is {node.path}", file=sys.stderr, flush=True)    
+                    print(f"Found goal: '{mapping(map, node.p)}'. Dist {node.dist}. Path is {node.path}", file=sys.stderr, flush=True)    
                     return node
                 new_nodes = node.expand(visited)
                 front.extend(new_nodes)
@@ -174,14 +176,29 @@ def get_pac_move(pac, node):
 
 def set_goal_with_close_enemy(pac, enemy, dist):
     type_id = is_beaten_by[enemy.type_id]
+    if pac.ability_cooldown==0 and dist == (2 if enemy.speed_turns_left > 0 else 1):
+        new_type = type_id if enemy.ability_cooldown>0 else is_beaten_by[is_beaten_by[pac.type_id]]
+        return Goal(switch(pac.id, new_type), f"cool switching for {enemy}")
+
     if pac.type_id != type_id and pac.ability_cooldown==0 and dist <=2:
         return Goal(switch(pac.id, type_id), f"switching for {enemy}")
     if pac.type_id == type_id or (pac.ability_cooldown < dist//2 and dist > 2):
-        return  Goal(move(pac.id, enemy.p), f"hunting {enemy}")
+        return Goal(move(pac.id, enemy.p), f"hunting {enemy}")
+    if dist <= 2 and (enemy.type_id == is_beaten_by[pac.type_id] or enemy.ability_cooldown < dist//2):
+        map[enemy.p.y][enemy.p.x] = ENEMY
+        node = Search(pac.p, [ENEMY]).search()
+        if node is not None:
+            for p in node.path:
+                map[p.y][p.x] = WALL
+        
+        node = Search(pac.p, [SPACE]).search()
+        if node is not None:
+            point = get_pac_move(pac, node)
+            return Goal(move(pac.id, point), f"flee to {point}")
 
     return Goal(move(pac.id, random_pellet()), f"enemy close: {enemy} but dont know what to do")
 
-def set_goal(pac,prev_round_pacs, my_pacs):
+def set_goal(pac,prev_round_pacs, my_pacs, goals):
     # hunting/fleeing from CLOSE enemy has priority
     if enemy_pacs:
         dist_map = {enemy.id: pac.p.l1dist(enemy.p) for enemy in enemy_pacs.values()}
@@ -203,7 +220,7 @@ def set_goal(pac,prev_round_pacs, my_pacs):
 
 
     node = Search(pac.p, ['9']).search()
-    if node is not None and node.dist <= 10:
+    if node is not None and node.dist <= 12:
         point = get_pac_move(pac, node)
         return Goal(move(pac.id, point), f"vis. p. {point}")
 
@@ -211,6 +228,14 @@ def set_goal(pac,prev_round_pacs, my_pacs):
     if node is not None and node.dist <= 7:
         point = get_pac_move(pac, node)
         return Goal(move(pac.id, point), f"vis. p. {point}")
+
+    # prev_goal = goals[pac.id]
+    # prev_cmd = prev_goal.command
+    # if (prev_cmd.startswith("MOVE ")):
+    #     x, y = prev_cmd.split(" ")[2:4]
+    #     if (pac.p.x != int(x) or pac.p.y != int(y)):
+    #         print(f"Prev goal not completed, continuing from pos {pac.p} to  x={x}, y={y} {prev_goal}", file=sys.stderr, flush=True)
+    #         return prev_goal
 
     # go for closest unexplored space
     node = Search(pac.p, [' ']).search()
@@ -331,9 +356,9 @@ while True:
 
 
     # todo detect dead pacs if you want nice code without warning
-    goals={}
+    # goals={}
     for pac in my_pacs.values():
-        goals[pac.id] = set_goal(pac,prev_round_pacs, my_pacs)
+        goals[pac.id] = set_goal(pac,prev_round_pacs, my_pacs, goals)
 
 
     # MOVE <pacId> <x> <y>
